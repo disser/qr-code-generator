@@ -5,9 +5,13 @@ export interface LogoImage {
   name: string;
 }
 
+export type ErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
+
 export interface RenderOptions {
   pixelSize: number;
   quietZoneModules: number;
+  errorCorrectionLevel: ErrorCorrectionLevel;
+  logoPercent: number;
 }
 
 export interface QrRender {

@@ -1,11 +1,25 @@
 import QRCode from 'qrcode';
-import type { LogoImage, QrRender, RenderOptions } from './types';
+import type { ErrorCorrectionLevel, LogoImage, QrRender, RenderOptions } from './types';
 
-const DEFAULT_OPTIONS: RenderOptions = { pixelSize: 1024, quietZoneModules: 4 };
+const DEFAULT_OPTIONS: RenderOptions = { pixelSize: 1024, quietZoneModules: 4, errorCorrectionLevel: 'H', logoPercent: 15 };
+const LOGO_THRESHOLDS: Record<ErrorCorrectionLevel, number> = { L: 7, M: 10, Q: 13, H: 15 };
 
-export function calculateLogoModules(moduleCount: number): number {
+export function getLogoThreshold(level: ErrorCorrectionLevel): number {
+  return LOGO_THRESHOLDS[level];
+}
+
+export function getLogoWarning(level: ErrorCorrectionLevel, logoPercent: number): string | null {
+  const roundedPercent = Math.round(logoPercent);
+  const threshold = getLogoThreshold(level);
+  return roundedPercent > threshold
+    ? `This ${roundedPercent}% logo is larger than the conservative recommendation for level ${level}. Test the downloaded QR code with multiple scanners before using it.`
+    : null;
+}
+
+export function calculateLogoModules(moduleCount: number, logoPercent: number): number {
   if (!Number.isFinite(moduleCount) || moduleCount < 1) return 1;
-  return Math.max(1, Math.floor(moduleCount * 0.15));
+  const clampedPercent = Math.min(30, Math.max(5, logoPercent));
+  return Math.max(1, Math.floor(moduleCount * clampedPercent / 100));
 }
 
 export function calculateCoverCrop(width: number, height: number): { sourceX: number; sourceY: number; sourceSize: number } {
@@ -41,9 +55,9 @@ function imageElement(dataUrl: string, x: number, y: number, size: number): stri
 
 export async function renderQr(destination: string, logo: LogoImage | null, suppliedOptions: Partial<RenderOptions> = {}): Promise<QrRender> {
   const options = { ...DEFAULT_OPTIONS, ...suppliedOptions };
-  const qr = QRCode.create(destination, { errorCorrectionLevel: 'H' });
+  const qr = QRCode.create(destination, { errorCorrectionLevel: options.errorCorrectionLevel });
   const moduleCount = qr.modules.size;
-  const logoModules = logo ? calculateLogoModules(moduleCount) : 0;
+  const logoModules = logo ? calculateLogoModules(moduleCount, options.logoPercent) : 0;
   const totalModules = moduleCount + options.quietZoneModules * 2;
   const modulePixels = options.pixelSize / totalModules;
   const canvas = document.createElement('canvas');
